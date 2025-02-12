@@ -1,10 +1,3 @@
-#-------------------------------------------------------------------------------#
-#                      Powered by Yurii Martyniuk                               #
-#                                                                               #
-#                     My first Cloudformation stack !                           #  
-#                                                                               #
-#-------------------------------------------------------------------------------#
-
 AWSTemplateFormatVersion: 2010-09-09
 Description: Create VPC
 
