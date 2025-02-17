@@ -24,37 +24,42 @@ jobs:
           ollama serve &
           sleep 5
 
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
       - name: Pull Mistral Model
-        run: ollama pull mistral
+        run: |
+          ollama pull mistral || (sleep 5 && ollama pull mistral)
 
       - name: Verify Installed Models
         run: ollama list
 
+      - name: Check Ollama Server
+        run: |
+          curl --silent http://127.0.0.1:11434/api/tags || (echo "Ollama server not running" && exit 1)
+
       - name: Generate PR Summary
         id: pr_summary
         run: |
-          # Get the list of changes (limited to first 1000 lines for safety)
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 1000)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
+          echo $DIFF
 
           if [[ -z "$DIFF" ]]; then
-            echo "PR_SUMMARY=No significant changes detected." >> $GITHUB_ENV
+            SUMMARY="No changes detected."
           else
-            # Generate a summary using the AI model
             RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
               -H "Content-Type: application/json" \
               -d '{
                 "model": "mistral",
-                "prompt": "Generate a concise yet informative summary of the following pull request changes:\n\n'"$DIFF"'",
+                "prompt": "Summarize the following pull request changes:\n\n'"$DIFF"'",
                 "stream": false
               }')
 
-            # Debug raw response
             echo "Raw Response: $RESPONSE"
-
-            # Extract the response text
-            SUMMARY=$(echo "$RESPONSE" | jq -r '.response // "Failed to generate summary"')
-            echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
+            SUMMARY=$(echo "$RESPONSE" | jq -r '.response // "No valid response from AI"')
           fi
+
+          echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
 
       - name: Post PR Summary Comment
         env:
