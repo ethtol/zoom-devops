@@ -1,2 +1,2 @@
-deepseek-coder-v2:latest
+karenishe/tiktoken:gpt-3.5-turbo
 magicoder:latest
