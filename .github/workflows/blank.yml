@@ -33,9 +33,9 @@ jobs:
         uses: behrouz-rad/ai-pr-summarizer@v1
         with:
           llm-model: 'mistral'
-          prompt-file: ./assets/prompt-file.txt
-          models-file: ./assets/models-file.txt
-          version-file: ./assets/version-file.txt
+          prompt-file: .github/workflows/assets/prompt-file.txt
+          models-file: .github/workflows/assets/models-file.txt
+          version-file: .github/workflows/assets/version-file.txt
           context-window: 4096
           upload-changes: true
           fail-on-error: true
