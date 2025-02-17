@@ -22,7 +22,7 @@ jobs:
       - name: Summarize PR with AI
         uses: behrouz-rad/ai-pr-summarizer@v1
         with:
-          llm-model: 'gpt-3.5-turbo'
+          llm-model: 'mistral:latest'
           prompt-file: .github/workflows/assets/prompt-file.txt
           models-file: .github/workflows/assets/models-file.txt
           version-file: .github/workflows/assets/version-file.txt
