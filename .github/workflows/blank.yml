@@ -1,51 +1,32 @@
-name: Auto-PR-Body Generator
+name: PR Summary Generator
 
 on:
-  pull_request:
-
-permissions:
-  contents: read
-  repository-projects: write
-  pull-requests: write
+    workflow_dispatch:
+  
+    pull_request:
+      branches:
+        - main
+  
+    push:
+      branches:
+        - main
 
 jobs:
-  build:
+  pr_summary:
     runs-on: ubuntu-latest
+    name: PR Summarizer
     steps:
-      - uses: actions/checkout@v2
-      - name: AI powered Automatic PR Body Generation
-        uses: jbrocher/auto-pr-body-generator@v0.2.2
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Summarize PR with AI
+        uses: behrouz-rad/ai-pr-summarizer@v1
         with:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-# name: PR Summary Generator
-
-# on:
-#     workflow_dispatch:
-  
-#     pull_request:
-#       branches:
-#         - main
-  
-#     push:
-#       branches:
-#         - main
-
-# jobs:
-#   pr_summary:
-#     runs-on: ubuntu-latest
-#     name: PR Summarizer
-#     steps:
-#       - name: Checkout Repository
-#         uses: actions/checkout@v4
-
-#       - name: Summarize PR with AI
-#         uses: behrouz-rad/ai-pr-summarizer@v1
-#         with:
-#           llm-model: 'deepseek-coder-v2:latest'
-#           prompt-file: .github/workflows/assets/prompt-file.txt
-#           models-file: .github/workflows/assets/models-file.txt
-#           version-file: .github/workflows/assets/version-file.txt
-#           context-window: 4096
-#           upload-changes: true
-#           fail-on-error: true
-#           token: ${{ secrets.GITHUB_TOKEN }}
+          llm-model: 'gpt-3.5-turbo'
+          prompt-file: .github/workflows/assets/prompt-file.txt
+          models-file: .github/workflows/assets/models-file.txt
+          version-file: .github/workflows/assets/version-file.txt
+          context-window: 4096
+          upload-changes: true
+          fail-on-error: true
+          token: ${{ secrets.GITHUB_TOKEN }}
