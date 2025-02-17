@@ -1,26 +1,21 @@
-name: GPT Commits summarizer
-# Summary: This action will write a comment about every commit in a pull request, as well as generate a summary for every file that was modified and add it to the review page, compile a PR summary from all commit summaries and file diff summaries, and delete outdated code review comments
+name: Auto-PR-Body Generator
 
 on:
-    workflow_dispatch:
-  
-    pull_request:
-      branches:
-        - main
-  
-    push:
-      branches:
-        - main
+  pull_request:
+
+permissions:
+  contents: read
+  repository-projects: write
+  pull-requests: write
 
 jobs:
-  summarize:
+  build:
     runs-on: ubuntu-latest
-    permissions: write-all  # Some repositories need this line
-
     steps:
-      - uses: KanHarI/gpt-commit-summarizer@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v2
+      - name: AI powered Automatic PR Body Generation
+        uses: jbrocher/auto-pr-body-generator@v0.2.2
+        with:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 # name: PR Summary Generator
 
