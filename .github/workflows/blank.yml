@@ -27,25 +27,34 @@ jobs:
       - name: Pull Mistral Model
         run: ollama pull mistral
 
+      - name: Verify Installed Models
+        run: ollama list
+
       - name: Generate PR Summary
         id: pr_summary
         run: |
-          # Get the list of changes
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
+          # Get the list of changes (limited to first 1000 lines for safety)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 1000)
 
-          # Generate a summary using the AI model
-          RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
-            -H "Content-Type: application/json" \
-            -d '{
-              "model": "mistral",
-              "prompt": "Generate a concise yet informative summary of the following changes in the pull request: '"$DIFF"'",
-              "stream": false
-            }')
+          if [[ -z "$DIFF" ]]; then
+            echo "PR_SUMMARY=No significant changes detected." >> $GITHUB_ENV
+          else
+            # Generate a summary using the AI model
+            RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
+              -H "Content-Type: application/json" \
+              -d '{
+                "model": "mistral",
+                "prompt": "Generate a concise yet informative summary of the following pull request changes:\n\n'"$DIFF"'",
+                "stream": false
+              }')
 
-          # Extract the response text
-          SUMMARY=$(echo "$RESPONSE" | jq -r '.response')
+            # Debug raw response
+            echo "Raw Response: $RESPONSE"
 
-          echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
+            # Extract the response text
+            SUMMARY=$(echo "$RESPONSE" | jq -r '.response // "Failed to generate summary"')
+            echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
+          fi
 
       - name: Post PR Summary Comment
         env:
