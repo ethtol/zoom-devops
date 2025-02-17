@@ -46,15 +46,15 @@ jobs:
           if [[ -z "$DIFF" ]]; then
             SUMMARY="No changes detected."
           else
-            # Escape newlines for JSON compatibility
-            ESCAPED_DIFF=$(echo "$DIFF" | sed 's/$/\\n/' | tr -d '\n')
+            # Escape special characters for JSON compatibility
+            ESCAPED_DIFF=$(echo "$DIFF" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ')
 
             # Generate a summary using the AI model
             RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
               -H "Content-Type: application/json" \
               -d '{
                 "model": "mistral",
-                "prompt": "Summarize the following pull request changes:\\n\\n'"$ESCAPED_DIFF"'",
+                "prompt": "Summarize the following pull request changes: '"$ESCAPED_DIFF"'",
                 "stream": false
               }')
 
