@@ -1,2 +1,2 @@
-karenishe/tiktoken:gpt-3.5-turbo
+mistral:latest
 magicoder:latest
