@@ -1,24 +1,20 @@
 name: PR Summary Generator
 
 on:
-    workflow_dispatch:
-  
-    pull_request:
-      branches:
-        - main
-  
-    push:
-      branches:
-        - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   pr_summary:
     runs-on: ubuntu-latest
-    name: PR Summarizer
+    permissions:
+      pull-requests: write
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
+
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
@@ -26,17 +22,34 @@ jobs:
           ollama serve &
           sleep 5
 
-      - name: Download Mistral Model
+      - name: Pull Mistral Model
         run: ollama pull mistral
 
-      - name: Summarize PR with AI
-        uses: behrouz-rad/ai-pr-summarizer@v1
-        with:
-          llm-model: 'mistral'
-          prompt-file: .github/workflows/assets/prompt-file.txt
-          models-file: .github/workflows/assets/models-file.txt
-          version-file: .github/workflows/assets/version-file.txt
-          context-window: 4096
-          upload-changes: true
-          fail-on-error: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate PR Summary
+        id: pr_summary
+        run: |
+          # Get the list of changes
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
+
+          # Generate a summary using the AI model
+          RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "mistral",
+              "prompt": "Generate a concise yet informative summary of the following changes in the pull request: '"$DIFF"'",
+              "stream": false
+            }')
+
+          # Extract the response text
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.response')
+
+          echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
+
+      - name: Post PR Summary Comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT="### 🤖 AI-Generated PR Summary\n\n$PR_SUMMARY"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          gh api repos/$REPO/issues/$PR_NUMBER/comments -f body="$COMMENT"
