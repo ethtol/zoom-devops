@@ -42,20 +42,24 @@ jobs:
         id: pr_summary
         run: |
           DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
-          echo $DIFF
 
           if [[ -z "$DIFF" ]]; then
             SUMMARY="No changes detected."
           else
+            # Escape newlines for JSON compatibility
+            ESCAPED_DIFF=$(echo "$DIFF" | sed 's/$/\\n/' | tr -d '\n')
+
+            # Generate a summary using the AI model
             RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
               -H "Content-Type: application/json" \
               -d '{
                 "model": "mistral",
-                "prompt": "Summarize the following pull request changes:\n\n'"$DIFF"'",
+                "prompt": "Summarize the following pull request changes:\\n\\n'"$ESCAPED_DIFF"'",
                 "stream": false
               }')
 
-            echo "Raw Response: $RESPONSE"
+            # Log the raw response
+            echo "Raw API Response: $RESPONSE"
             SUMMARY=$(echo "$RESPONSE" | jq -r '.response // "No valid response from AI"')
           fi
 
