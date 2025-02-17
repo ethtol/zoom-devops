@@ -41,7 +41,11 @@ jobs:
       - name: Generate PR Summary
         id: pr_summary
         run: |
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
+          # Fetch all branches to ensure origin/main is available
+          git fetch origin main
+
+          # Get the list of changes (limited to first 500 lines for safety)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
 
           if [[ -z "$DIFF" ]]; then
             SUMMARY="No changes detected."
