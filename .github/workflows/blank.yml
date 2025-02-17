@@ -18,6 +18,13 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          export PATH=$PATH:/usr/local/bin
+          ollama serve &
+          sleep 5
 
       - name: Download Mistral Model
         run: ollama pull mistral
