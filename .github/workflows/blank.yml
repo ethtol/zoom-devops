@@ -41,7 +41,7 @@ jobs:
       - name: Generate PR Summary
         id: pr_summary
         run: |
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
 
           if [[ -z "$DIFF" ]]; then
             SUMMARY="No changes detected."
