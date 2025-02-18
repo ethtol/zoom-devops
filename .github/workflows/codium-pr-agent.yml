@@ -9,50 +9,86 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
+  generate_pr_summary:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
-      # Install system dependencies required to build certain Python packages
+      # Install system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libffi-dev build-essential python3-dev libssl-dev
 
-      # Set up Python 3.9
+      # Set up Python
       - name: Set up Python 3.9
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
 
-      # Create a virtual environment and activate it
-      - name: Create virtual environment
+      # Install required Python packages
+      - name: Install Python dependencies
         run: |
-          python3 -m venv venv
-          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install openai requests
 
-      # Install dependencies and run the PR body generator action
-      - name: AI-powered Automatic PR Body Generation
-        uses: jbrocher/auto-pr-body-generator@v0.2.2
-        with:
+      # Generate PR summary using GPT-3.5-Turbo
+      - name: Generate PR Summary
+        env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          
-      - name: Generate PR Body with GPT-3.5-Turbo
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -c "
-          import openai
+          python <<EOF
           import os
+          import openai
+          import requests
+          import json
           
           openai.api_key = os.getenv('OPENAI_API_KEY')
           
+          # Get PR details from GitHub API
+          repo = os.getenv('GITHUB_REPOSITORY')
+          pr_number = os.getenv('GITHUB_EVENT_PATH')
+          headers = {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
+          pr_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+          
+          response = requests.get(pr_url, headers=headers)
+          pr_data = response.json()
+          
+          if 'title' not in pr_data or 'body' not in pr_data:
+              print("Failed to fetch PR details.")
+              exit(1)
+          
+          pr_title = pr_data['title']
+          pr_body = pr_data.get('body', '')
+          pr_changes_url = pr_data['diff_url']
+          
+          # Fetch PR changes
+          changes_response = requests.get(pr_changes_url, headers=headers)
+          pr_changes = changes_response.text[:5000]  # Limit to 5000 characters for prompt size
+          
+          # Prepare the prompt
+          prompt_text = f"""
+          Title: {pr_title}
+          Description: {pr_body}
+          Changes: {pr_changes}
+          
+          Summarize this PR in a clear and concise manner.
+          """
+          
+          # Call OpenAI API
           response = openai.ChatCompletion.create(
-            model='gpt-3.5-turbo',
-            messages=[
-              {'role': 'system', 'content': 'You are a helpful assistant.'},
-              {'role': 'user', 'content': 'Please generate a PR body summary for the following PR.'}
-            ],
+              model="gpt-3.5-turbo",
+              messages=[{"role": "system", "content": "You are a helpful assistant that summarizes GitHub pull requests."},
+                        {"role": "user", "content": prompt_text}]
           )
           
-          print(response['choices'][0]['message']['content'])
-          "
+          summary = response["choices"][0]["message"]["content"]
+          
+          # Post comment on PR
+          comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
+          comment_body = {"body": f"## PR Summary:\n{summary}"}
+          requests.post(comment_url, headers=headers, data=json.dumps(comment_body))
+          
+          print("PR Summary posted successfully.")
+          EOF
