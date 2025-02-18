@@ -67,11 +67,19 @@ jobs:
 
           echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
 
+      - name: Escape Special Characters in Summary
+        run: |
+          # Escape backticks and other special characters in the summary
+          ESCAPED_SUMMARY=$(echo "$PR_SUMMARY" | sed 's/\`/\\`/g' | sed 's/\$/\\\$/g' | sed 's/\*/\\*/g' | sed 's/_/\\_/g')
+
+          # Set the final summary
+          echo "ESCAPED_PR_SUMMARY=$ESCAPED_SUMMARY" >> $GITHUB_ENV
+
       - name: Post PR Summary Comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT="### 🤖 AI-Generated PR Summary\n\n$PR_SUMMARY"
+          COMMENT="### 🤖 AI-Generated PR Summary\n\n$ESCAPED_PR_SUMMARY"
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           gh api repos/$REPO/issues/$PR_NUMBER/comments -f body="$COMMENT"
