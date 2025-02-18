@@ -57,24 +57,15 @@ jobs:
           result = subprocess.run(['git', 'diff', '--unified=10', 'origin/main..HEAD'], capture_output=True, text=True)
           pr_changes = result.stdout
 
-          # Extract changed files
+          # Extract list of changed files
           file_changes_result = subprocess.run(['git', 'diff', '--name-only', 'origin/main..HEAD'], capture_output=True, text=True)
           changed_files = file_changes_result.stdout.splitlines()
 
-          # Filter changes to focus only on parameter updates
-          filtered_changes = "\n".join([
-              line for line in pr_changes.splitlines()
-              if "Default" in line or "Cidr" in line or "AllowedPattern" in line or "Parameters" in line
-          ])
-
-          # Use raw diff if no filtered changes
-          significant_changes = filtered_changes if filtered_changes else pr_changes[:3000]
-
-          # Prepare the prompt with explicit instructions
+          # Prepare the prompt with all changes
           prompt_text = f"""
           The following changes were detected in the pull request:
 
-          {significant_changes}
+          {pr_changes[:10000]}
 
           Please summarize the exact modifications in **bullet-point format**.
           - **List each modified parameter with its old and new value.**
