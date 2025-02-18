@@ -10,7 +10,7 @@ Parameters:
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
     Description: VPC CIDR Ip Range
     Type: String
-    Default: "10.10.12.0/24"
+    Default: "10.10.11.0/16"
 
   BucketName:
     Description: "Name of S3 bucket for our VPC FlowLog"
@@ -30,7 +30,7 @@ Parameters:
     Description: Depend to count of AZs select combination. Only for 2 AZS (check aws region available azs)
     Type: String
     AllowedValues:
-      - 'a,b'
+      - 'a,b,c'
 
   AtlasVPCCidr:
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
@@ -253,7 +253,7 @@ Resources:
   ######### EIP A/B ################################
   EIPA:
     Type: "AWS::EC2::EIP"
-    DeletionPolicy: Delete
+    DeletionPolicy: Retain
     UpdateReplacePolicy: Delete
     Condition: CombinationAB
     Properties:

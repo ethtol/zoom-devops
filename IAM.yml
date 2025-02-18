@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template create Roles and managed Policies
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - I3042
+Resources:
+  LambdaScanningRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "We use static name for this role, because we use arn of this role into lambda repo. (W28) Resource found with an explicit name, this disallows updates that require replacement of this resource"
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      RoleName: LambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+      - PolicyName: LambdaRole
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+                - s3:GetObject
+                - s3:DeleteObject
+              Resource:
+                - "arn:aws:s3:::*/*"
+                - "arn:aws:s3:::*"
