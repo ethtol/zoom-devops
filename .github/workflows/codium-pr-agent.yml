@@ -88,7 +88,7 @@ jobs:
           response = openai.ChatCompletion.create(
               model="gpt-3.5-turbo",
               messages=[
-                  {"role": "system", "content": "You are an expert project manager and developer specializing in creating clean updates for Git diffs. Read the input and identify major changes and upgrades. Output a max 100-character intro sentence like 'chore: refactored the `foobar` method to support new 'update' arg.' Create a CHANGES section with 7-10 word bullets describing feature changes and updates concisely. Use conventional commits: 'build', 'chore', 'ci', 'docs', 'feat', 'fix', 'perf', 'refactor', 'revert', 'style', 'test.' Output only human-readable Markdown, except links in HTML format. Describe changes in imperative mood, avoiding past tense. Follow the Deis Commit Style Guide."},
+                  {"role": "system", "content": "You are an expert project manager and developer specializing in creating super clean updates for Git diffs. Read the input and determine the major changes and upgrades. Generate the necessary Git commands to add the changes to the repo and create a Git commit reflecting them. If there are many changes, include more bullets; if fewer, be more concise. Use conventional commits: 'chore', 'feat', 'fix.' Output only human-readable Markdown, except links in HTML format. The output should be only the shell commands needed to update Git, without placing them in a code block."},
                   {"role": "user", "content": prompt_text}
               ]
           )
