@@ -14,6 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # Fetch full Git history to avoid shallow clone issues
+      - name: Fetch complete history
+        run: git fetch --prune --unshallow
+
       # Install system dependencies
       - name: Install system dependencies
         run: |
@@ -43,59 +47,60 @@ jobs:
           python <<EOF
           import os
           import openai
+          import subprocess
           import requests
           import json
           
           openai.api_key = os.getenv('OPENAI_API_KEY')
-          
-          # Read PR number from GitHub event JSON
-          event_path = os.getenv('EVENT_PATH')
-          with open(event_path, 'r') as f:
-              event_data = json.load(f)
-          
-          pr_number = event_data['pull_request']['number']
-          repo = os.getenv('GITHUB_REPOSITORY')
-          
-          # Fetch PR details
-          headers = {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
-          pr_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
-          
-          response = requests.get(pr_url, headers=headers)
-          pr_data = response.json()
-          
-          if 'title' not in pr_data or 'body' not in pr_data:
-              print("Failed to fetch PR details.")
-              exit(1)
-          
-          pr_title = pr_data['title']
-          pr_body = pr_data.get('body', '')
-          pr_changes_url = pr_data['diff_url']
-          
-          # Fetch PR changes (limit to first 5000 characters for prompt)
-          changes_response = requests.get(pr_changes_url, headers=headers)
-          pr_changes = changes_response.text[:5000]
-          
-          # Prepare the prompt for OpenAI with instructions for list format
-          prompt_text = f"""
-          Title: {pr_title}
-          Description: {pr_body}
-          Changes: {pr_changes}
 
-          Please provide a clear, concise summary of this PR in bullet-point format, separating each change as a distinct item.
+          # Run git diff to get full changes
+          result = subprocess.run(['git', 'diff', '--unified=10', 'origin/main..HEAD'], capture_output=True, text=True)
+          pr_changes = result.stdout
+
+          # Extract changed files
+          file_changes_result = subprocess.run(['git', 'diff', '--name-only', 'origin/main..HEAD'], capture_output=True, text=True)
+          changed_files = file_changes_result.stdout.splitlines()
+
+          # Filter changes to focus only on parameter updates
+          filtered_changes = "\n".join([
+              line for line in pr_changes.splitlines()
+              if "Default" in line or "Cidr" in line or "AllowedPattern" in line or "Parameters" in line
+          ])
+
+          # Use raw diff if no filtered changes
+          significant_changes = filtered_changes if filtered_changes else pr_changes[:3000]
+
+          # Prepare the prompt with explicit instructions
+          prompt_text = f"""
+          The following changes were detected in the pull request:
+
+          {significant_changes}
+
+          Please summarize the exact modifications in **bullet-point format**.
+          - **List each modified parameter with its old and new value.**
+          - **Include the filename where the change occurred.**
+          - **Do not generate additional explanations or modify the output structure.**
+
+          Example output format:
+
+          - Changed `VPCCidr` default from `10.10.12.0/24` to `10.10.10.0/24` in `APPS.yml`.
+          - Changed `VPCCidr` default from `10.10.12.0/24` to `10.10.11.0/16` in `VPC.yml`.
+
+          List all changes precisely.
           """
-          
-          # Call OpenAI ChatCompletion API
+
+          # Call OpenAI API to generate the PR Summary
           response = openai.ChatCompletion.create(
               model="gpt-3.5-turbo",
               messages=[
-                  {"role": "system", "content": "You are an expert project manager and developer specializing in creating super clean updates for Git diffs. Read the input and determine the major changes and upgrades. Generate the necessary Git commands to add the changes to the repo and create a Git commit reflecting them. If there are many changes, include more bullets; if fewer, be more concise. Use conventional commits: 'chore', 'feat', 'fix.' Output only human-readable Markdown, except links in HTML format. The output should be only the shell commands needed to update Git, without placing them in a code block."},
+                  {"role": "system", "content": "You are an expert DevOps assistant. Your job is to analyze infrastructure code diffs and generate structured summaries with accurate information."},
                   {"role": "user", "content": prompt_text}
               ]
           )
           
           summary = response["choices"][0]["message"]["content"]
 
-          # Format the PR description with the summary in bullet-point format
+          # Format PR description
           new_body = f"""
           ---
           ## 🤖 PR Summary generated by OpenAI:
@@ -103,10 +108,20 @@ jobs:
           {summary}
 
           ---
-          
+          ### 📂 Affected Files:
+          {', '.join(changed_files)}
+
+          ---
           """
 
-          # Update the PR description using GitHub API
+          # Update PR description via GitHub API
+          repo = os.getenv('GITHUB_REPOSITORY')
+          event_path = os.getenv('EVENT_PATH')
+          with open(event_path, 'r') as f:
+              event_data = json.load(f)
+
+          pr_number = event_data['pull_request']['number']
+          headers = {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
           update_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
           update_data = {"body": new_body}
           update_response = requests.patch(update_url, headers=headers, data=json.dumps(update_data))
