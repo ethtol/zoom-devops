@@ -103,6 +103,11 @@ jobs:
           {summary}
 
           ---
+          
+          ### 📂 Affected Files:
+          {', '.join(changed_files)}
+          ---
+          
           """
 
           # Update the PR description using GitHub API
