@@ -5,73 +5,28 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  generate_summary:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
+    - name: Check out repo
+      uses: actions/checkout@v2
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install openai
+    - name: Use Node
+      uses: actions/setup-node@v2
 
-      - name: Fetch remote branches
-        run: git fetch origin
+      with:
+        node-version: '16.x'
 
-      - name: Get PR details and generate summary
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          # Get the PR title and body from the PR metadata
-          PR_TITLE=$(jq --raw-output .pull_request.title "$GITHUB_EVENT_PATH")
-          PR_BODY=$(jq --raw-output .pull_request.body "$GITHUB_EVENT_PATH")
-          
-          # Get the diff between HEAD and origin/main
-          git diff origin/main...HEAD > diff.patch
-          
-          # Check if the diff has any changes, otherwise set to a default message
-          if [ -s diff.patch ]; then
-            PR_DIFF=$(cat diff.patch)
-          else
-            PR_DIFF="No changes detected in this pull request."
-          fi
+    - name: Install deps
+      run: npm install
 
-          # Create the OpenAI prompt
-          PR_PROMPT="Title: $PR_TITLE\nDescription: $PR_BODY\nChanges: $PR_DIFF\nPlease summarize the above PR in a concise format."
+    - name: Run PR summary action
+      uses: skarthikeyan96/typescript-custom-action@0.0.1
 
-          # Call OpenAI API to generate the PR summary
-          SUMMARY=$(python -c "
-          import openai
-          import os
-          
-          openai.api_key = os.getenv('OPENAI_API_KEY')
-          
-          response = openai.Completion.create(
-            model='text-davinci-003',
-            prompt='$PR_PROMPT',
-            max_tokens=150
-          )
-          
-          print(response.choices[0].text.strip())
-          ")
-
-          echo "Generated PR Summary: $SUMMARY"
-
-      - name: Add Summary as Comment
-        uses: peter-evans/create-or-update-comment@v2
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ## PR Summary:
-            $SUMMARY
+      with:
+        OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.API_TOKEN }}
 
 
 
