@@ -22,9 +22,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install openai
 
+      - name: Fetch remote branches
+        run: git fetch origin
+
       - name: Get PR details and generate summary
         env:
-          GITHUB_TOKEN: ${{ secrets.API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           # Get the PR title, body, and changes
@@ -60,6 +63,7 @@ jobs:
           body: |
             ## PR Summary:
             $SUMMARY
+
 
 # name: PR Summary Generator
 
