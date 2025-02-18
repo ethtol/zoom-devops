@@ -37,6 +37,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_PATH: ${{ github.event_path }}
         run: |
           python <<EOF
           import os
@@ -46,9 +48,15 @@ jobs:
           
           openai.api_key = os.getenv('OPENAI_API_KEY')
           
-          # Get PR details from GitHub API
+          # Read PR number from GitHub event JSON
+          event_path = os.getenv('EVENT_PATH')
+          with open(event_path, 'r') as f:
+              event_data = json.load(f)
+          
+          pr_number = event_data['pull_request']['number']
           repo = os.getenv('GITHUB_REPOSITORY')
-          pr_number = os.getenv('GITHUB_EVENT_PATH')
+          
+          # Fetch PR details
           headers = {"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
           pr_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
           
@@ -63,32 +71,37 @@ jobs:
           pr_body = pr_data.get('body', '')
           pr_changes_url = pr_data['diff_url']
           
-          # Fetch PR changes
+          # Fetch PR changes (limit to first 5000 characters for prompt)
           changes_response = requests.get(pr_changes_url, headers=headers)
-          pr_changes = changes_response.text[:5000]  # Limit to 5000 characters for prompt size
+          pr_changes = changes_response.text[:5000]
           
-          # Prepare the prompt
+          # Prepare the prompt for OpenAI
           prompt_text = f"""
           Title: {pr_title}
           Description: {pr_body}
           Changes: {pr_changes}
           
-          Summarize this PR in a clear and concise manner.
+          Please provide a clear, concise summary of this PR.
           """
           
-          # Call OpenAI API
+          # Call OpenAI ChatCompletion API
           response = openai.ChatCompletion.create(
               model="gpt-3.5-turbo",
-              messages=[{"role": "system", "content": "You are a helpful assistant that summarizes GitHub pull requests."},
-                        {"role": "user", "content": prompt_text}]
+              messages=[
+                  {"role": "system", "content": "You are a helpful assistant that summarizes GitHub pull requests."},
+                  {"role": "user", "content": prompt_text}
+              ]
           )
           
           summary = response["choices"][0]["message"]["content"]
           
-          # Post comment on PR
+          # Post the summary as a comment on the PR
           comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-          comment_body = {"body": f"## PR Summary:\n{summary}"}
-          requests.post(comment_url, headers=headers, data=json.dumps(comment_body))
+          comment_body = {"body": f"## 📝 PR Summary:\n\n{summary}"}
+          comment_response = requests.post(comment_url, headers=headers, data=json.dumps(comment_body))
           
-          print("PR Summary posted successfully.")
+          if comment_response.status_code == 201:
+              print("✅ PR Summary posted successfully.")
+          else:
+              print(f"⚠️ Failed to post PR summary. Status code: {comment_response.status_code}")
           EOF
