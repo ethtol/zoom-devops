@@ -107,3 +107,4 @@ jobs:
           ### 📑 Changes:
           ```diff
           {pr_changes[:3000]}
+          EOF
