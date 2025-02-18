@@ -4,7 +4,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
   repository-projects: write
   pull-requests: write
 
@@ -75,13 +75,13 @@ jobs:
           changes_response = requests.get(pr_changes_url, headers=headers)
           pr_changes = changes_response.text[:5000]
           
-          # Prepare the prompt for OpenAI
+          # Prepare the prompt for OpenAI with instructions for list format
           prompt_text = f"""
           Title: {pr_title}
           Description: {pr_body}
           Changes: {pr_changes}
-          
-          Please provide a clear, concise summary of this PR.
+
+          Please provide a clear, concise summary of this PR in bullet-point format, separating each change as a distinct item.
           """
           
           # Call OpenAI ChatCompletion API
@@ -94,14 +94,31 @@ jobs:
           )
           
           summary = response["choices"][0]["message"]["content"]
-          
-          # Post the summary as a comment on the PR
-          comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-          comment_body = {"body": f"## 📝 PR Summary:\n\n{summary}"}
-          comment_response = requests.post(comment_url, headers=headers, data=json.dumps(comment_body))
-          
-          if comment_response.status_code == 201:
-              print("✅ PR Summary posted successfully.")
+
+          # Format the PR description with the summary in bullet-point format
+          new_body = f"""
+          ## 📝 PR Summary:
+
+          {summary}
+
+          ---
+
+          ### 🔍 Title:
+          **{pr_title}**
+
+          ### 📑 Changes:
+          ```diff
+          {pr_changes[:3000]}
+          ```
+          """
+
+          # Update the PR description using GitHub API
+          update_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+          update_data = {"body": new_body}
+          update_response = requests.patch(update_url, headers=headers, data=json.dumps(update_data))
+
+          if update_response.status_code == 200:
+              print("✅ PR Description updated successfully.")
           else:
-              print(f"⚠️ Failed to post PR summary. Status code: {comment_response.status_code}")
+              print(f"⚠️ Failed to update PR description. Status code: {update_response.status_code}, Response: {update_response.text}")
           EOF
