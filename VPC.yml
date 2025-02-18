@@ -3,7 +3,7 @@ Description: Create VPCs
 
 Metadata:
   Author:
-    Description: Creator Yurii Martyniuk
+    Description: Creator
 
 Parameters:
   VPCCidr:
