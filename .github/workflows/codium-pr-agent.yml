@@ -72,11 +72,6 @@ jobs:
           - **Include the filename where the change occurred.**
           - **Do not generate additional explanations or modify the output structure.**
 
-          Example output format:
-
-          - Changed `VPCCidr` default from `10.10.12.0/24` to `10.10.10.0/24` in `APPS.yml`.
-          - Changed `VPCCidr` default from `10.10.12.0/24` to `10.10.11.0/16` in `VPC.yml`.
-
           List all changes precisely.
           """
 
