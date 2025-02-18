@@ -5,81 +5,20 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  repository-projects: write
+  pull-requests: write
+
 jobs:
-  pr_summary:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-
     steps:
-      - name: Checkout Repository with Full History
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v2
+      - name: AI powered Automatic PR Body Generation
+        uses: jbrocher/auto-pr-body-generator@v0.2.2
         with:
-          fetch-depth: 0
-
-      - name: Install Ollama
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          export PATH=$PATH:/usr/local/bin
-          ollama serve &
-          sleep 5
-
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Pull Mistral Model
-        run: |
-          ollama pull mistral || (sleep 5 && ollama pull mistral)
-
-      - name: Verify Installed Models
-        run: ollama list
-
-      - name: Check Ollama Server Availability
-        run: |
-          # Make sure Ollama is running
-          timeout 30s curl --silent http://127.0.0.1:11434/api/tags || (echo "Ollama server is not responding." && exit 1)
-
-      - name: Generate PR Summary
-        id: pr_summary
-        run: |
-          # Fetch the changes (limited to 500 lines)
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
-
-          if [[ -z "$DIFF" ]]; then
-            SUMMARY="No changes detected."
-          else
-            # Escape special characters for JSON compatibility
-            ESCAPED_DIFF=$(echo "$DIFF" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ')
-
-            # Set a timeout for the API request to avoid hanging
-            RESPONSE=$(timeout 60s curl -s -X POST http://localhost:11434/api/generate \
-              -H "Content-Type: application/json" \
-              -d '{
-                "model": "mistral",
-                "prompt": "Summarize the following pull request changes involving a '.yml' file: '"$ESCAPED_DIFF"'",
-                "stream": false
-              }')
-
-            # Log the raw response
-            echo "Raw API Response: $RESPONSE"
-            SUMMARY=$(echo "$RESPONSE" | jq -r '.response // "No valid response from AI"')
-          fi
-
-          echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
-
-      - name: Correct File Extension in Summary
-        run: |
-          # Replace '.ymk' with '.yml' in the generated summary
-          CORRECTED_SUMMARY=$(echo "$PR_SUMMARY" | sed 's/\.ymk/\.yml/g')
-
-          # Set the corrected summary
-          echo "CORRECTED_PR_SUMMARY=$CORRECTED_SUMMARY" >> $GITHUB_ENV
-
-      - name: Post PR Summary Comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          COMMENT="### 🤖 AI-Generated PR Summary\n\n$CORRECTED_PR_SUMMARY"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           gh api repos/$REPO/issues/$PR_NUMBER/comments -f body="$COMMENT"
