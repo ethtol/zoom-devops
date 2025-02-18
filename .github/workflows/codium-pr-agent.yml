@@ -5,7 +5,7 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  repository-projects: write
   pull-requests: write
 
 jobs:
@@ -21,10 +21,10 @@ jobs:
           sudo apt-get install -y libffi-dev build-essential python3-dev libssl-dev
 
       # Set up Python
-      - name: Set up Python 3.11
+      - name: Set up Python 3.9
         uses: actions/setup-python@v2
         with:
-          python-version: 3.11
+          python-version: 3.9
 
       # Install required Python packages
       - name: Install Python dependencies
@@ -32,7 +32,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install openai requests
 
-      # Generate PR summary using GPT-3.5-Turbo with the new OpenAI API
+      # Generate PR summary using GPT-3.5-Turbo
       - name: Generate PR Summary
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -46,8 +46,7 @@ jobs:
           import requests
           import json
           
-          # Initialize OpenAI client with the new API interface
-          client = openai.Client(api_key=os.getenv('OPENAI_API_KEY'))
+          openai.api_key = os.getenv('OPENAI_API_KEY')
           
           # Read PR number from GitHub event JSON
           event_path = os.getenv('EVENT_PATH')
@@ -72,12 +71,9 @@ jobs:
           pr_body = pr_data.get('body', '')
           pr_changes_url = pr_data['diff_url']
           
-          # Fetch PR changes (limit to first 3000 characters for prompt)
+          # Fetch PR changes (limit to first 5000 characters for prompt)
           changes_response = requests.get(pr_changes_url, headers=headers)
-          pr_changes = changes_response.text[:3000]
-          
-          # Escape backticks for Markdown compatibility
-          escaped_changes = pr_changes.replace('`', "'")
+          pr_changes = changes_response.text[:5000]
           
           # Prepare the prompt for OpenAI
           prompt_text = f"""
@@ -88,8 +84,8 @@ jobs:
           Please provide a clear, concise summary of this PR.
           """
           
-          # Call OpenAI ChatCompletion API using the new client interface
-          response = client.chat.completions.create(
+          # Call OpenAI ChatCompletion API
+          response = openai.ChatCompletion.create(
               model="gpt-3.5-turbo",
               messages=[
                   {"role": "system", "content": "You are a helpful assistant that summarizes GitHub pull requests."},
@@ -97,38 +93,15 @@ jobs:
               ]
           )
           
-          summary = response.choices[0].message.content
-          
-          # Format the summary for better readability in Markdown
-          formatted_summary = f"""
-          ## 📝 PR Summary
-          
-          ### 🔍 Title:
-          **{pr_title}**
-          
-          ### 🗒️ Description:
-          {pr_body if pr_body else '_No description provided._'}
-          
-          ---
-          
-          ### 📑 Changes:
-          ```diff
-          {escaped_changes}
-
-          
-          ---
-          
-          ### 🤖 AI-generated Summary:
-          {summary}
-          """
+          summary = response["choices"][0]["message"]["content"]
           
           # Post the summary as a comment on the PR
           comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-          comment_body = {"body": formatted_summary}
+          comment_body = {"body": f"## 📝 PR Summary:\n\n{summary}"}
           comment_response = requests.post(comment_url, headers=headers, data=json.dumps(comment_body))
           
           if comment_response.status_code == 201:
               print("✅ PR Summary posted successfully.")
           else:
-              print(f"⚠️ Failed to post PR summary. Status code: {comment_response.status_code}, Response: {comment_response.text}")
+              print(f"⚠️ Failed to post PR summary. Status code: {comment_response.status_code}")
           EOF
