@@ -24,7 +24,7 @@ Parameters:
     Description: Enter number of AZS.
     Type: String
     AllowedValues:
-      - "2"
+      - "3"
 
   CombinationAZs:
     Description: Depend to count of AZs select combination. Only for 2 AZS (check aws region available azs)
