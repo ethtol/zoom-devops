@@ -1,4 +1,4 @@
-name: Auto-PR-Body Generator
+name: AI PR Body Generator
 
 on:
   pull_request:
@@ -14,30 +14,25 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # Install system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libffi-dev build-essential python3-dev libssl-dev
 
-      # Set up Python
-      - name: Set up Python 3.9
+      - name: Set up Python 3.11
         uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: 3.11
 
-      # Install required Python packages
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install openai==0.28.0 requests
+          pip install openai requests
 
-
-      # Generate PR summary using GPT-3.5-Turbo
       - name: Generate PR Summary
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT_PATH: ${{ github.event_path }}
         run: |
@@ -47,7 +42,8 @@ jobs:
           import requests
           import json
           
-          openai.api_key = os.getenv('OPENAI_API_KEY')
+          # Initialize OpenAI client with the new API interface
+          client = openai.Client(api_key=os.getenv('OPENAI_API_KEY'))
           
           # Read PR number from GitHub event JSON
           event_path = os.getenv('EVENT_PATH')
@@ -85,8 +81,8 @@ jobs:
           Please provide a clear, concise summary of this PR.
           """
           
-          # Call OpenAI ChatCompletion API
-          response = openai.ChatCompletion.create(
+          # Call OpenAI ChatCompletion API using the new client interface
+          response = client.chat.completions.create(
               model="gpt-3.5-turbo",
               messages=[
                   {"role": "system", "content": "You are a helpful assistant that summarizes GitHub pull requests."},
@@ -94,15 +90,20 @@ jobs:
               ]
           )
           
-          summary = response["choices"][0]["message"]["content"]
+          summary = response.choices[0].message.content
           
-          # Post the summary as a comment on the PR
-          comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-          comment_body = {"body": f"## 📝 PR Summary:\n\n{summary}"}
-          comment_response = requests.post(comment_url, headers=headers, data=json.dumps(comment_body))
+          # Format the summary for better readability in Markdown
+          formatted_summary = f"""
+          ## 📝 PR Summary
           
-          if comment_response.status_code == 201:
-              print("✅ PR Summary posted successfully.")
-          else:
-              print(f"⚠️ Failed to post PR summary. Status code: {comment_response.status_code}")
-          EOF
+          ### 🔍 Title:
+          **{pr_title}**
+          
+          ### 🗒️ Description:
+          {pr_body if pr_body else '_No description provided._'}
+          
+          ---
+          
+          ### 📑 Changes:
+          ```diff
+          {pr_changes[:3000]}
