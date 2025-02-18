@@ -20,6 +20,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libffi-dev build-essential python3-dev libssl-dev
 
+      # Set up Python 3.9
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      # Create a virtual environment and activate it
+      - name: Create virtual environment
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+
+      # Install dependencies and run the PR body generator action
       - name: AI-powered Automatic PR Body Generation
         uses: jbrocher/auto-pr-body-generator@v0.2.2
         with:
