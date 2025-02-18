@@ -75,13 +75,13 @@ jobs:
           changes_response = requests.get(pr_changes_url, headers=headers)
           pr_changes = changes_response.text[:5000]
           
-          # Prepare the prompt for OpenAI
+          # Prepare the prompt for OpenAI with instructions for list format
           prompt_text = f"""
           Title: {pr_title}
           Description: {pr_body}
           Changes: {pr_changes}
 
-          Please provide a clear, concise summary of this PR.
+          Please provide a clear, concise summary of this PR in bullet-point format, separating each change as a distinct item.
           """
           
           # Call OpenAI ChatCompletion API
@@ -95,18 +95,16 @@ jobs:
           
           summary = response["choices"][0]["message"]["content"]
 
-          # Format the PR description with the summary
+          # Format the PR description with the summary in bullet-point format
           new_body = f"""
           ## 📝 PR Summary:
+
           {summary}
 
           ---
 
           ### 🔍 Title:
           **{pr_title}**
-
-          ### 🗒️ Description:
-          {pr_body if pr_body else "_No description provided._"}
 
           ### 📑 Changes:
           ```diff
