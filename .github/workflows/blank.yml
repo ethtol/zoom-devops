@@ -43,7 +43,7 @@ jobs:
         id: pr_summary
         run: |
           # Fetch the changes (limited to 500 lines)
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
 
           if [[ -z "$DIFF" ]]; then
             SUMMARY="No changes detected."
@@ -56,7 +56,7 @@ jobs:
               -H "Content-Type: application/json" \
               -d '{
                 "model": "mistral",
-                "prompt": "Summarize the following pull request changes: '"$ESCAPED_DIFF"'",
+                "prompt": "Summarize the following pull request changes involving a '.yml' file: '"$ESCAPED_DIFF"'",
                 "stream": false
               }')
 
@@ -67,19 +67,19 @@ jobs:
 
           echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
 
-      - name: Escape Special Characters in Summary
+      - name: Correct File Extension in Summary
         run: |
-          # Escape backticks and other special characters in the summary
-          ESCAPED_SUMMARY=$(echo "$PR_SUMMARY" | sed 's/\`/\\`/g' | sed 's/\$/\\\$/g' | sed 's/\*/\\*/g' | sed 's/_/\\_/g')
+          # Replace '.ymk' with '.yml' in the generated summary
+          CORRECTED_SUMMARY=$(echo "$PR_SUMMARY" | sed 's/\.ymk/\.yml/g')
 
-          # Set the final summary
-          echo "ESCAPED_PR_SUMMARY=$ESCAPED_SUMMARY" >> $GITHUB_ENV
+          # Set the corrected summary
+          echo "CORRECTED_PR_SUMMARY=$CORRECTED_SUMMARY" >> $GITHUB_ENV
 
       - name: Post PR Summary Comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT="### 🤖 AI-Generated PR Summary\n\n$ESCAPED_PR_SUMMARY"
+          COMMENT="### 🤖 AI-Generated PR Summary\n\n$CORRECTED_PR_SUMMARY"
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           gh api repos/$REPO/issues/$PR_NUMBER/comments -f body="$COMMENT"
