@@ -72,12 +72,12 @@ jobs:
           pr_body = pr_data.get('body', '')
           pr_changes_url = pr_data['diff_url']
           
-          # Fetch PR changes (limit to first 5000 characters for prompt)
+          # Fetch PR changes (limit to first 3000 characters for prompt)
           changes_response = requests.get(pr_changes_url, headers=headers)
           pr_changes = changes_response.text[:3000]
           
           # Escape backticks for Markdown compatibility
-          escaped_changes = pr_changes.replace('`', '\\`')
+          escaped_changes = pr_changes.replace('`', "'")
           
           # Prepare the prompt for OpenAI
           prompt_text = f"""
@@ -112,9 +112,9 @@ jobs:
           ---
           
           ### 📑 Changes:
-          \\`\\`\\`diff
+          ```diff
           {escaped_changes}
-          \\`\\`\\`
+
           
           ---
           
