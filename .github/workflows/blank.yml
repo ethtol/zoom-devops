@@ -34,18 +34,16 @@ jobs:
       - name: Verify Installed Models
         run: ollama list
 
-      - name: Check Ollama Server
+      - name: Check Ollama Server Availability
         run: |
-          curl --silent http://127.0.0.1:11434/api/tags || (echo "Ollama server not running" && exit 1)
+          # Make sure Ollama is running
+          timeout 30s curl --silent http://127.0.0.1:11434/api/tags || (echo "Ollama server is not responding." && exit 1)
 
       - name: Generate PR Summary
         id: pr_summary
         run: |
-          # Fetch all branches to ensure origin/main is available
-          git fetch origin main
-
-          # Get the list of changes (limited to first 500 lines for safety)
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
+          # Fetch the changes (limited to 500 lines)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
 
           if [[ -z "$DIFF" ]]; then
             SUMMARY="No changes detected."
@@ -53,8 +51,8 @@ jobs:
             # Escape special characters for JSON compatibility
             ESCAPED_DIFF=$(echo "$DIFF" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ')
 
-            # Generate a summary using the AI model
-            RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
+            # Set a timeout for the API request to avoid hanging
+            RESPONSE=$(timeout 60s curl -s -X POST http://localhost:11434/api/generate \
               -H "Content-Type: application/json" \
               -d '{
                 "model": "mistral",
