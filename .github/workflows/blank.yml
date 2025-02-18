@@ -5,17 +5,24 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-  repository-projects: write
-  pull-requests: write
-
 jobs:
-  build:
+  pr_agent_job:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+    name: Run pr agent on every pull request, respond to user comments
     steps:
-      - uses: actions/checkout@v2
-      - name: AI powerd Automatic PR Body Generation
-        uses: jbrocher/auto-pr-body-generator@v0.2.2
-        with:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: PR Agent action step
+        id: pragent
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI }}
+          GITHUB_TOKEN: ${{ secrets.API_TOKEN }}
+          pr_description.use_description_markers: "true"
+          pr_description.include_generated_by_header: "true"
+          github_action.auto_review: "true"
+          github_action.auto_describe: "true"
+          github_action.auto_improve: "true"
+          pr_update_changelog.push_changelog_changes: "true"
