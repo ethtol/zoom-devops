@@ -253,7 +253,7 @@ Resources:
   ######### EIP A/B ################################
   EIPA:
     Type: "AWS::EC2::EIP"
-    DeletionPolicy: Delete
+    DeletionPolicy: Retain
     UpdateReplacePolicy: Delete
     Condition: CombinationAB
     Properties:
