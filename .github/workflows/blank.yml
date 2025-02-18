@@ -6,26 +6,31 @@ on:
       - main
 
 permissions:
-  contents: read
-  repository-projects: write
   pull-requests: write
+  contents: read
 
 jobs:
-  build:
+  pull-request:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      
-      - name: AI powered Automatic PR Body Generation
-        uses: jbrocher/auto-pr-body-generator@v0.2.2
+      - uses: actions/checkout@v3
+      - name: Generate PR Description
+        uses: Ant0wan/openai-pr@v1
         with:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
+          api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: "text-davinci-002"
+          template: |
+            ## Description
 
-      - name: Post PR Comment
+            This pull request addresses the following issues:
+
+            - Issue 1
+            - Issue 2
+
+            ## Changes
+
+            - Change 1
+            - Change 2
+          header: "Hello, I need your help in generating a pull request description. Please analyze the changes and provide a concise description."
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          COMMENT="### 🤖 AI-Generated PR Summary\n\n$PR_SUMMARY"
-          gh api repos/$REPO/issues/$PR_NUMBER/comments -f body="$COMMENT"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
