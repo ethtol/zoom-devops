@@ -24,26 +24,48 @@ jobs:
           ollama serve &
           sleep 5
 
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
       - name: Pull Mistral Model
-        run: ollama pull mistral
+        run: |
+          ollama pull mistral || (sleep 5 && ollama pull mistral)
+
+      - name: Verify Installed Models
+        run: ollama list
+
+      - name: Check Ollama Server
+        run: |
+          curl --silent http://127.0.0.1:11434/api/tags || (echo "Ollama server not running" && exit 1)
 
       - name: Generate PR Summary
         id: pr_summary
         run: |
-          # Get the list of changes
-          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD)
+          # Fetch all branches to ensure origin/main is available
+          git fetch origin main
 
-          # Generate a summary using the AI model
-          RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
-            -H "Content-Type: application/json" \
-            -d '{
-              "model": "mistral",
-              "prompt": "Generate a concise yet informative summary of the following changes in the pull request: '"$DIFF"'",
-              "stream": false
-            }')
+          # Get the list of changes (limited to first 500 lines for safety)
+          DIFF=$(git diff --unified=3 --color=never origin/main...HEAD | head -n 500)
 
-          # Extract the response text
-          SUMMARY=$(echo "$RESPONSE" | jq -r '.response')
+          if [[ -z "$DIFF" ]]; then
+            SUMMARY="No changes detected."
+          else
+            # Escape special characters for JSON compatibility
+            ESCAPED_DIFF=$(echo "$DIFF" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ')
+
+            # Generate a summary using the AI model
+            RESPONSE=$(curl -s -X POST http://localhost:11434/api/generate \
+              -H "Content-Type: application/json" \
+              -d '{
+                "model": "mistral",
+                "prompt": "Summarize the following pull request changes: '"$ESCAPED_DIFF"'",
+                "stream": false
+              }')
+
+            # Log the raw response
+            echo "Raw API Response: $RESPONSE"
+            SUMMARY=$(echo "$RESPONSE" | jq -r '.response // "No valid response from AI"')
+          fi
 
           echo "PR_SUMMARY=$SUMMARY" >> $GITHUB_ENV
 
